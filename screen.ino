@@ -50,41 +50,41 @@ unsigned int score    = 0;
 
 #define LEVEL_LEN 256
 static const unsigned char level[LEVEL_LEN] = {
-  1, 1, 1, 1, 1, 1, 1, 1,
-  2, 3, 5, 6, 6, 5, 4, 5,
+  0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+  0x22, 0x03, 0x05, 0x26, 6, 5, 4, 5,
   6, 8, 9, 10, 10, 11, 11, 11,
-  12, 13, 15, 17, 20, 21, 21, 21,
-  20, 18, 16, 12, 10, 9, 10, 12,
-  12, 11, 9, 5, 0, 0, 0, 0,
-  0, 0, 0, 0, 17, 17, 17, 17,
-  18, 18, 17, 17, 0, 0, 0, 0,
+  12, 13, 15, 0x2f, 0x0f, 0x3f, 0x0e, 0x2d,
+  0x0d, 0x0b, 0x2c, 12, 10, 9, 10, 12,
+  12, 11, 9, 5, 0x10, 0x10, 0x10, 0x10,
+  0x10, 0x10, 0x10, 0x10, 0x27, 0x27, 0x27, 0x27,
+  0x28, 0x28, 0x27, 0x27, 0x10, 0x10, 0x10, 0x10,
   // 64
-  0, 6, 6, 5, 4, 4, 3, 4,
+  0x10, 6, 6, 5, 4, 4, 3, 4,
   4, 5, 6, 8, 9, 10, 10, 11,
   11, 12, 13, 15, 15, 14, 12, 10,
-  6, 2, 0, 0, 0, 1, 2, 3,
+  6, 2, 0x10, 0x10, 0x10, 1, 2, 3,
   4, 5, 6, 7, 8, 9, 10, 11,
   12, 13, 14, 15, 14, 13, 12, 11,
   10, 9, 8, 7, 6, 5, 4, 3,
-  2, 1, 0, 0, 0, 0, 0,
+  2, 1, 0x10, 0x10, 0x10, 0x10, 0x10,
   // 128 FIXME
-  0, 6, 6, 5, 4, 4, 3, 4,
+  0x10, 6, 6, 5, 4, 4, 3, 4,
   4, 5, 6, 8, 9, 10, 10, 11,
   11, 12, 13, 15, 15, 14, 12, 10,
-  6, 2, 0, 0, 0, 1, 2, 3,
+  6, 2, 0x10, 0x10, 0x10, 1, 2, 3,
   4, 5, 6, 7, 8, 9, 10, 11,
   12, 13, 14, 15, 14, 13, 12, 11,
   10, 9, 8, 7, 6, 5, 4, 3,
-  2, 1, 0, 0, 0, 0, 0,
+  2, 1, 0x10, 0x10, 0x10, 0x10, 0x10,
   // 192 FIXME
-  0, 6, 6, 5, 4, 4, 3, 4,
+  0x10, 6, 6, 5, 4, 4, 3, 4,
   4, 5, 6, 8, 9, 10, 10, 11,
   11, 12, 13, 15, 15, 14, 12, 10,
-  6, 2, 0, 0, 0, 1, 2, 3,
+  6, 2, 0x10, 0x10, 0x10, 1, 2, 3,
   4, 5, 6, 7, 8, 9, 10, 11,
   12, 13, 14, 15, 14, 13, 12, 11,
   10, 9, 8, 7, 6, 5, 4, 3,
-  2, 1, 0, 0, 0, 0, 0,
+  2, 1, 0x10, 0x10, 0x10, 0x10, 0x10,
   // 256
 };
 
@@ -271,6 +271,37 @@ static const unsigned char PROGMEM cloud_left[9] = {
   0b00011111,
 };
 
+static const unsigned char PROGMEM lv_water[3] = {
+  0b00010000,
+  0b00101000,
+  0b11000111,
+};
+static const unsigned char PROGMEM lv_grass[6] = {
+  0b01000000,
+  0b10100000,
+  0b00100100,
+  0b10101000,
+  0b01111010,
+  0b01111100,
+};
+
+/*
+typedef struct level_object_t {
+  unsigned char  x;
+  unsigned char PROGMEM *bitmap;
+};
+
+static const level_object_t object[2] = {
+  {
+    3,
+    lv_water,
+  },
+  {
+    4,
+    lv_grass,
+  },
+};
+*/
 void draw_screen ()
 {
     display.clearDisplay();
@@ -279,20 +310,24 @@ void draw_screen ()
     display.drawBitmap(int(x), int(SCREEN_HEIGHT-y), right_bird[bird_frame], 8, 8, 1);
 
     // ground
-    unsigned int  i = int(progress/8);
-    unsigned char lv = level[i];
-    if (lv)
-      display.fillRect(0, SCREEN_HEIGHT-lv, 8-progress%8, lv, 1);
-    for (i = 1; i < int(SCREEN_WIDTH/8); i++) {
-      lv = level[int(progress/8)+i];
+    for (unsigned int i = 0; i <= int(SCREEN_WIDTH/8); i++) {
+      unsigned char lv  = level[int(progress/8)+i];
+      unsigned char obj = lv >> 4;
+      lv = lv & 0x0F;
+
       if (lv)
-        display.fillRect(8-progress%8+(i-1)*8, SCREEN_HEIGHT-lv, 8, lv, 1);
-    }
-    if (progress%8) {
-      i = int(progress/8)+SCREEN_WIDTH/8;
-      lv = level[i];
-      if (lv)
-        display.fillRect(SCREEN_WIDTH-progress%8, SCREEN_HEIGHT-lv, progress%8, lv, 1);
+        display.fillRect(i*8-progress%8, SCREEN_HEIGHT-lv, 8, lv, 1);
+      if (obj > 0 && obj <= 2) {
+        const static unsigned char *bmp;
+        unsigned char bmx;
+        switch (obj) {
+          case 1:  bmp = lv_water;  bmx = 3;
+            break;
+          case 2:  bmp = lv_grass;  bmx = 6;
+            break;
+        }
+        display.drawBitmap(i*8-progress%8, SCREEN_HEIGHT-lv-bmx, bmp, 8, bmx, 1);
+      }
     }
 
     // score
@@ -383,9 +418,19 @@ void loop ()
       }
       if (long_press) {
         state = ST_LSTART;
+        x = 0;
+        y = SCREEN_HEIGHT/2;
       }
 
     } else if (state == ST_HS) {
+
+      unsigned char lv  = level[5];
+      unsigned char obj = lv & 0xF0;
+      lv = lv & 0x0F;
+      Serial.print("lv[5] = ");
+      Serial.print(lv);
+      Serial.print(", obj[5] = ");
+      Serial.print(obj);
 
       display.clearDisplay();
       for (int s = 0; s < 6; s++) {
