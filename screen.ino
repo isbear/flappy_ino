@@ -478,7 +478,7 @@ void loop ()
 
       do_bird_tick();
 
-      if (y >= SCREEN_WIDTH-8) {
+      if (x >= SCREEN_WIDTH-8) {
         state = ST_GG;
       }
 
