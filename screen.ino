@@ -36,7 +36,7 @@ gamestate_t state = ST_MENU;
 unsigned int highscore[6] = {1000, 900, 800, 700, 600, 500};
 
 unsigned int button_state = 0;
-unsigned int button_stamp = 0;
+unsigned long button_stamp = 0;
 bool short_press = false;
 bool long_press = false;
 
