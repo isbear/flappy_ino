@@ -1,0 +1,13 @@
+# vim backups
+*.swp
+*~
+# garbage
+*.bak
+*.orig
+*.rej
+# generated files
+build
+vendor
+target
+Cargo.lock
+
