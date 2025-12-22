@@ -582,9 +582,8 @@ void loop ()
         }
         state = ST_HS;
       }
-      state = ST_HS;
-      return;
-    }
+
+    } // state switch
         
     short_press = false;
     long_press  = false;
