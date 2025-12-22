@@ -7,9 +7,15 @@
 #define OLED_RESET -1
 #define SCREEN_ADDRESS 0x3C
 
+#undef STORE_SCORES
+
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+
+#ifdef STORE_SCORES
+#include <EEPROM.h>
+#endif
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
@@ -20,13 +26,14 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 unsigned long stamp;
 
-// ST_MENU -> ST_HS -> ST_MENU
+// ST_MENU -> ST_HS -> ST_GM -> ST_MENU
 // ST_MENU -> ST_LSTART -> ST_LEVEL
 // ST_LEVEL -> ST_GO -> ST_HS
 // ST_LEVEL -> ST_LEND -> ST_GG -> ST_HS
 typedef enum {
   ST_MENU,
   ST_HS,
+  ST_GM,
   ST_LSTART,
   ST_LEVEL,
   ST_LEND,
@@ -47,7 +54,7 @@ float y  = 0;
 float dx = 0;
 float dy = 0;
 float energy = MAX_ENERGY;
-bool godmode = false;
+bool godmode = true;
 
 unsigned int progress = 0;
 unsigned int score    = 0;
@@ -244,23 +251,79 @@ static const unsigned char PROGMEM lv_nest_left[16] = {
   0b01110110,
   0b11011011, // 16
 };
-static const unsigned char PROGMEM lv_updraft[16] = {
-  0b00100000,
-  0b01000000,
-  0b01000000,
-  0b01000000,
-  0b00100000,
-  0b00110000,
-  0b00001100,
-  0b00001100,
-  0b00001000, // 8
-  0b00010000,
-  0b00010000,
-  0b00000000,
-  0b00011010,
-  0b11100111,
-  0b01011010,
-  0b00011000, // 16
+static const unsigned char PROGMEM lv_updraft[4][16] = {
+  {
+    0b01000001,
+    0b01000001,
+    0b00000000,
+    0b00010000,
+    0b00010000,
+    0b00000000,
+    0b00000100,
+    0b10000100,
+    0b10000000, // 8
+    0b00000000,
+    0b00001000,
+    0b00000000,
+    0b00011010,
+    0b11100111,
+    0b01011010,
+    0b00011000, // 16
+  },
+  {
+    0b00010000,
+    0b00010000,
+    0b00000000,
+    0b00000100,
+    0b10000100,
+    0b10000000,
+    0b00000000,
+    0b00001000,
+    0b01000001, // 8
+    0b01000001,
+    0b00000000,
+    0b00000000,
+    0b00011100,
+    0b01100110,
+    0b00111000,
+    0b00011000, // 16
+  },
+  {
+    0b00000100,
+    0b10000100,
+    0b10000000,
+    0b00000000,
+    0b00001000,
+    0b01000001,
+    0b01000001,
+    0b00000000,
+    0b00010000, // 8
+    0b00010000,
+    0b00000000,
+    0b00000000,
+    0b01011000,
+    0b11100111,
+    0b00011010,
+    0b00011000, // 16
+  },
+  {
+    0b00000000,
+    0b00001000,
+    0b01000001,
+    0b01000001,
+    0b00000000,
+    0b00010000,
+    0b00010000,
+    0b00000000,
+    0b00000100, // 8
+    0b10000100,
+    0b10000000,
+    0b00000000,
+    0b00111000,
+    0b01100110,
+    0b01011100,
+    0b00011000, // 16
+  },
 };
 static const unsigned char PROGMEM lv_balloon[12] = {
   0b00111100,
@@ -299,12 +362,12 @@ void draw_screen ()
         unsigned char bmh;
         unsigned char bmy = lv;
         switch (obj) {
-          case 1:  bmp = lv_water;       bmh = 3;   break;
-          case 2:  bmp = lv_grass;       bmh = 6;   break;
-          case 3:  bmp = lv_nest_right;  bmh = 32;  break;
-          case 4:  bmp = lv_nest_left;   bmh = 16;  break;
-          case 5:  bmp = lv_updraft;     bmh = 16;  break;
-          case 6:  bmp = lv_balloon;     bmh = 12;  bmy = SCREEN_HEIGHT-bmh;  break;
+          case 1:  bmp = lv_water;                   bmh = 3;   break;
+          case 2:  bmp = lv_grass;                   bmh = 6;   break;
+          case 3:  bmp = lv_nest_right;              bmh = 32;  break;
+          case 4:  bmp = lv_nest_left;               bmh = 16;  break;
+          case 5:  bmp = lv_updraft[progress/2%4];   bmh = 16;  break;
+          case 6:  bmp = lv_balloon;                 bmh = 12;  bmy = SCREEN_HEIGHT-bmh-bool(progress%16>7);  break;
         }
         display.drawBitmap(EBAR_WIDTH+i*8-progress%8, SCREEN_HEIGHT-bmy-bmh, bmp, 8, bmh, 1);
       }
@@ -340,6 +403,33 @@ void do_bird_tick ()
   }
 }
 
+void load_scores()
+{
+#ifdef STORE_SCORES
+  unsigned char stored = EEPROM.read(0);
+  if (stored == 1) {
+    Serial.println("Loading highscore from EEPROM");
+    for (int i = 0; i < sizeof(highscore); i++) {
+      ((byte *)highscore)[i] = EEPROM.read(1+i);
+    }
+  } else {
+    Serial.println("Highscore was not yet stored in EEPROM");
+  }
+#endif
+}
+
+void write_scores()
+{
+#ifdef STORE_SCORES
+  Serial.println("Writing scores to EEPROM...");
+  for (int i = 0; i < sizeof(highscore); i++) {
+    EEPROM.write(1+i, ((byte *)highscore)[i]);
+  }
+  EEPROM.write(0, 1);
+  Serial.println("done");
+#endif
+}
+
 void setup()
 {
   // serial console
@@ -357,6 +447,8 @@ void setup()
 
   display.setTextSize(1);
   display.setTextColor(1);
+
+  load_scores();
 
   state = ST_MENU;
 }
@@ -413,10 +505,6 @@ void loop ()
 
     } else if (state == ST_HS) {
 
-      unsigned char lv  = level[5];
-      unsigned char obj = lv & 0xF0;
-      lv = lv & 0x0F;
-
       display.clearDisplay();
       for (int s = 0; s < 6; s++) {
         char buf[16];
@@ -430,7 +518,30 @@ void loop ()
       display.display();
 
       if (short_press) {
+        state = ST_GM;
+      }
+
+    } else if (state == ST_GM) {
+
+      display.clearDisplay();
+      display.drawRect(1, 1, SCREEN_WIDTH-2, SCREEN_HEIGHT-2-10, 1);
+      display.setCursor(4, int(SCREEN_HEIGHT/2)-12);
+      display.setTextSize(2);
+      if (godmode) {
+        display.println("GODMODE: +");
+      } else {
+        display.println("GODMODE: -");
+      }
+      display.setTextSize(1);
+      display.setCursor(0, SCREEN_HEIGHT-8);
+      display.println("short: next long: chg");
+      display.display();
+
+      if (short_press) {
         state = ST_MENU;
+      }
+      if (long_press) {
+        godmode = !godmode;
       }
 
     } else if (state == ST_LSTART) {
@@ -578,11 +689,13 @@ void loop ()
       display.display();
 
       if (short_press) {
-        if (pos < 6) {
-          for (int i = 5; i > pos; i--)
-            highscore[i] = highscore[i-1];
-          highscore[pos] = score;
-        }
+        if (!godmode)
+          if (pos < 6) {
+            for (int i = 5; i > pos; i--)
+              highscore[i] = highscore[i-1];
+            highscore[pos] = score;
+            write_scores();
+          }
         state = ST_HS;
       }
 
@@ -608,11 +721,13 @@ void loop ()
       display.display();
 
       if (short_press) {
-        if (pos < 6) {
-          for (int i = 5; i > pos; i--)
-            highscore[i] = highscore[i-1];
-          highscore[pos] = score;
-        }
+        if (!godmode)
+          if (pos < 6) {
+            for (int i = 5; i > pos; i--)
+              highscore[i] = highscore[i-1];
+            highscore[pos] = score;
+            write_scores();
+          }
         state = ST_HS;
       }
 
