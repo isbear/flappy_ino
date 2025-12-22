@@ -13,8 +13,9 @@
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-#define FPS 25
 #define JOYSTICK_PIN A3
+
+#define FPS 25
 #define MAX_ENERGY (SCREEN_HEIGHT-2)
 
 unsigned long stamp;
@@ -46,6 +47,7 @@ float y  = 0;
 float dx = 0;
 float dy = 0;
 float energy = MAX_ENERGY;
+bool godmode = false;
 
 unsigned int progress = 0;
 unsigned int score    = 0;
@@ -54,16 +56,15 @@ unsigned int score    = 0;
 #define LEVEL_SWIDTH (SCREEN_WIDTH-EBAR_WIDTH)
 #define LEVEL_LEN 256
 static const unsigned char level[LEVEL_LEN] = {
-  0x30, 0x21, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+  0x30, 0x21, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, // 0
   0x22, 0x03, 0x05, 0x26, 0x06, 0x05, 0x04, 0x05,
-  0x06, 0x08, 0x09, 0x0a, 0x0a, 0x0b, 0x0b, 0x0b,
+  0x56, 0x58, 0x09, 0x0a, 0x0a, 0x0b, 0x0b, 0x0b,
   0x0c, 0x0d, 0x0f, 0x2f, 0x0f, 0x2f, 0x0e, 0x2d,
   0x0d, 0x0b, 0x2c, 0x0c, 0x0a, 0x09, 0x0a, 0x0c,
-  0x0c, 0x0b, 0x09, 0x05, 0x10, 0x10, 0x10, 0x10,
+  0x0c, 0x0b, 0x09, 0x05, 0x61, 0x10, 0x10, 0x10,
   0x10, 0x10, 0x10, 0x10, 0x27, 0x07, 0x27, 0x07,
   0x28, 0x08, 0x27, 0x07, 0x10, 0x10, 0x10, 0x10,
-  // 64
-  0x10, 0x06, 0x06, 0x05, 0x04, 0x04, 0x03, 0x04,
+  0x10, 0x06, 0x66, 0x05, 0x04, 0x04, 0x53, 0x04, // 64
   0x04, 0x05, 0x06, 0x08, 0x09, 0x0a, 0x0a, 0x0b,
   0x0b, 0x0c, 0x0d, 0x0f, 0x0f, 0x0e, 0x0c, 0x0a,
   0x06, 0x02, 0x10, 0x10, 0x10, 0x01, 0x02, 0x03,
@@ -71,8 +72,7 @@ static const unsigned char level[LEVEL_LEN] = {
   0x0c, 0x0d, 0x0e, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b,
   0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03,
   0x02, 0x01, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
-  // 128 FIXME
-  0x10, 0x06, 0x06, 0x05, 0x04, 0x04, 0x03, 0x04,
+  0x10, 0x06, 0x06, 0x05, 0x04, 0x04, 0x03, 0x04, // 128
   0x04, 0x05, 0x06, 0x08, 0x09, 0x0a, 0x0a, 0x0b,
   0x0b, 0x0c, 0x0d, 0x0f, 0x0f, 0x0e, 0x0c, 0x0a,
   0x06, 0x02, 0x10, 0x10, 0x10, 0x01, 0x02, 0x03,
@@ -80,16 +80,14 @@ static const unsigned char level[LEVEL_LEN] = {
   0x0c, 0x0d, 0x0e, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b,
   0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03,
   0x02, 0x01, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
-  // 192 FIXME
-  0x10, 0x06, 0x06, 0x05, 0x04, 0x04, 0x03, 0x04,
+  0x10, 0x06, 0x06, 0x05, 0x04, 0x04, 0x03, 0x04, // 192
   0x04, 0x05, 0x06, 0x08, 0x09, 0x0a, 0x0a, 0x0b,
   0x0b, 0x0c, 0x0d, 0x0f, 0x0f, 0x0e, 0x0c, 0x0a,
   0x06, 0x02, 0x10, 0x10, 0x10, 0x01, 0x02, 0x03,
   0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
   0x0c, 0x0d, 0x0e, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b,
   0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03,
-  0x02, 0x01, 0x10, 0x10, 0x10, 0x01, 0x21, 0x40,
-  // 256
+  0x02, 0x01, 0x10, 0x10, 0x10, 0x01, 0x21, 0x40, // 256
 };
 
 #define BIRD_START_X 5
@@ -177,6 +175,10 @@ static const unsigned char PROGMEM cloud_left[9] = {
   0b00011111,
 };
 
+//
+//  Level objects
+//
+
 static const unsigned char PROGMEM lv_water[3] = {
   0b00010000,
   0b00101000,
@@ -199,8 +201,7 @@ static const unsigned char PROGMEM lv_nest_right[32] = {
   0b01111000,
   0b11010110,
   0b00101111,
-
-  0b11010111,
+  0b11010111, // 8
   0b10101110,
   0b11100000,
   0b11000000,
@@ -208,8 +209,7 @@ static const unsigned char PROGMEM lv_nest_right[32] = {
   0b10000000,
   0b10000000,
   0b10000000,
-
-  0b10000000,
+  0b10000000, // 16
   0b10000000,
   0b10000000,
   0b10010001,
@@ -217,17 +217,15 @@ static const unsigned char PROGMEM lv_nest_right[32] = {
   0b10001111,
   0b11111000,
   0b11000000,
-
-  0b10000000,
+  0b10000000, // 24
   0b10000000,
   0b10000000,
   0b10000000,
   0b11000000,
   0b11110000,
   0b11011100,
-  0b11100111,
+  0b11100111, // 32
 };
-
 static const unsigned char PROGMEM lv_nest_left[16] = {
   0b00000000,
   0b00000000,
@@ -237,16 +235,49 @@ static const unsigned char PROGMEM lv_nest_left[16] = {
   0b01100010,
   0b01111010,
   0b01110110,
-
-  0b01010110,
+  0b01010110, // 8
   0b01011110,
   0b01110110,
   0b01101110,
   0b01101110,
   0b01110110,
   0b01110110,
-  0b11011011,
+  0b11011011, // 16
 };
+static const unsigned char PROGMEM lv_updraft[16] = {
+  0b00100000,
+  0b01000000,
+  0b01000000,
+  0b01000000,
+  0b00100000,
+  0b00110000,
+  0b00001100,
+  0b00001100,
+  0b00001000, // 8
+  0b00010000,
+  0b00010000,
+  0b00000000,
+  0b00011010,
+  0b11100111,
+  0b01011010,
+  0b00011000, // 16
+};
+static const unsigned char PROGMEM lv_balloon[12] = {
+  0b00111100,
+  0b11011011,
+  0b11011011,
+  0b11011011,
+  0b11100111,
+  0b10011001,
+  0b10011001,
+  0b01000010, 
+  0b01000010, // 8
+  0b00111100,
+  0b00111100,
+  0b00111100,
+};
+
+#define LV_OBJECTS 6
 
 void draw_screen ()
 {
@@ -263,20 +294,19 @@ void draw_screen ()
 
       if (lv)
         display.fillRect(EBAR_WIDTH+i*8-progress%8, SCREEN_HEIGHT-lv, 8, lv, 1);
-      if (obj > 0 && obj <= 4) {
+      if (obj > 0 && obj <= LV_OBJECTS) {
         const static unsigned char *bmp;
-        unsigned char bmy;
+        unsigned char bmh;
+        unsigned char bmy = lv;
         switch (obj) {
-          case 1:  bmp = lv_water;  bmy = 3;
-            break;
-          case 2:  bmp = lv_grass;  bmy = 6;
-            break;
-          case 3:  bmp = lv_nest_right;  bmy = 32;
-            break;
-          case 4:  bmp = lv_nest_left;   bmy = 16;
-            break;
+          case 1:  bmp = lv_water;       bmh = 3;   break;
+          case 2:  bmp = lv_grass;       bmh = 6;   break;
+          case 3:  bmp = lv_nest_right;  bmh = 32;  break;
+          case 4:  bmp = lv_nest_left;   bmh = 16;  break;
+          case 5:  bmp = lv_updraft;     bmh = 16;  break;
+          case 6:  bmp = lv_balloon;     bmh = 12;  bmy = SCREEN_HEIGHT-bmh;  break;
         }
-        display.drawBitmap(EBAR_WIDTH+i*8-progress%8, SCREEN_HEIGHT-lv-bmy, bmp, 8, bmy, 1);
+        display.drawBitmap(EBAR_WIDTH+i*8-progress%8, SCREEN_HEIGHT-bmy-bmh, bmp, 8, bmh, 1);
       }
     }
 
@@ -426,6 +456,20 @@ void loop ()
       dx = 0;
       dy = -1;
 
+      unsigned char lv  = level[int((progress+x)/8)];
+      unsigned char obj = lv >> 4;
+      lv = lv & 0x0F;
+
+      if (y - 3 < lv) {
+        if (!godmode) {
+          state = ST_GO;
+          return;
+        } else {
+          dy = 0;
+          y  = lv + 3;
+        }
+      }
+
       if (button_state > 0) {
         if (energy > 0) {
           dy = 1;
@@ -435,6 +479,22 @@ void loop ()
         if (energy < MAX_ENERGY) {
           energy += 0.5;
         }
+      }
+
+      switch (obj) {
+        // vent
+        case 5:  dy += 2;  break;
+        // balloon
+        case 6:
+                 if (y+3 > SCREEN_HEIGHT-12)
+                   if (!godmode) {
+                     state = ST_GO;
+                     return;
+                   } else {
+                     y = SCREEN_HEIGHT-12-3;
+                     dy = 0;
+                   }
+                 break;
       }
 
       x        += dx;
@@ -449,7 +509,7 @@ void loop ()
         state    = ST_LEND;
       }
 
-
+      // shouldn't happen, but to be sure
       if (x > LEVEL_SWIDTH - 4) {
         x  = LEVEL_SWIDTH-4;
         dx = 0;
@@ -458,13 +518,19 @@ void loop ()
         x  = 4;
         dx = 0;
       }
+
       if (y > SCREEN_HEIGHT-3) {
         y  = SCREEN_HEIGHT-3;
         dy = 0;
       }
       if (y < 3) {
-        y  = 3;
-        dy = 0;
+        if (!godmode) {
+          state = ST_GO;
+          return;
+        } else {
+          y  = 3;
+          dy = 0;
+        }
       }
 
       draw_screen();
@@ -486,6 +552,7 @@ void loop ()
 
       if (x >= LEVEL_SWIDTH-4) {
         state = ST_GG;
+        return;
       }
 
       draw_screen();
