@@ -15,6 +15,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 #define FPS 25
 #define JOYSTICK_PIN A3
+#define MAX_ENERGY SCREEN_HEIGHT-2
 
 unsigned long stamp;
 
@@ -44,6 +45,7 @@ float x  = 0;
 float y  = SCREEN_HEIGHT/2;
 float dx = 0;
 float dy = 0;
+float energy = MAX_ENERGY;
 
 unsigned int progress = 0;
 unsigned int score    = 0;
@@ -330,6 +332,11 @@ void draw_screen ()
       }
     }
 
+    // energy
+    display.fillRect(0, 0, 4, SCREEN_HEIGHT, 1);
+    display.fillRect(1, 1, 2, MAX_ENERGY-int(energy), 0);
+    display.drawLine(4, 0, 4, SCREEN_HEIGHT, 0);
+
     // score
     char buf[16];
     display.fillRect(SCREEN_WIDTH-26, 0, 26, 7, 0);
@@ -467,8 +474,14 @@ void loop ()
 
       dy = -1;
       if (button_state > 0) {
-        Serial.println("flap");
-        dy = 1;
+        if (energy > 0) {
+          dy = 1;
+          energy -= 0.5;
+        }
+      } else {
+        if (energy < MAX_ENERGY) {
+          energy += 0.5;
+        }
       }
 
       x += dx;
@@ -528,7 +541,7 @@ void loop ()
       unsigned int pos;
 
       display.clearDisplay();
-      display.drawRect(1, 1, SCREEN_WIDTH-2, SCREEN_HEIGHT-2-10, 1);
+      display.drawRect(1, 1, SCREEN_WIDTH-2, SCREEN_HEIGHT-2-8, 1);
       display.setCursor(int(SCREEN_WIDTH/2)-30, 4);
       display.println("GAME OVER");
 
@@ -546,7 +559,7 @@ void loop ()
 
       if (short_press) {
         if (pos < 6) {
-          for (int i = 5; i > pos; i++)
+          for (int i = 5; i > pos; i--)
             highscore[i] = highscore[i-1];
           highscore[pos] = score;
         }
@@ -558,7 +571,7 @@ void loop ()
       unsigned int pos;
 
       display.clearDisplay();
-      display.drawRect(1, 1, SCREEN_WIDTH-2, SCREEN_HEIGHT-2-10, 1);
+      display.drawRect(1, 1, SCREEN_WIDTH-2, SCREEN_HEIGHT-2-8, 1);
       display.setCursor(int(SCREEN_WIDTH/2)-38, 4);
       display.println("LEVEL CLEAR");
 
@@ -576,7 +589,7 @@ void loop ()
 
       if (short_press) {
         if (pos < 6) {
-          for (int i = 5; i > pos; i++)
+          for (int i = 5; i > pos; i--)
             highscore[i] = highscore[i-1];
           highscore[pos] = score;
         }
