@@ -427,10 +427,6 @@ void loop ()
       unsigned char lv  = level[5];
       unsigned char obj = lv & 0xF0;
       lv = lv & 0x0F;
-      Serial.print("lv[5] = ");
-      Serial.print(lv);
-      Serial.print(", obj[5] = ");
-      Serial.print(obj);
 
       display.clearDisplay();
       for (int s = 0; s < 6; s++) {
@@ -465,7 +461,6 @@ void loop ()
       }
 
       draw_screen();
-      return;
 
     } else if (state == ST_LEVEL) {
       dx = 0;
@@ -528,13 +523,65 @@ void loop ()
       }
 
       draw_screen();
-      return;
     } else if (state == ST_GO) {
-      // FIXME
-      state = ST_HS;
-      return;
+      char buf[16];
+      unsigned int pos;
+
+      display.clearDisplay();
+      display.drawRect(1, 1, SCREEN_WIDTH-2, SCREEN_HEIGHT-2-10, 1);
+      display.setCursor(int(SCREEN_WIDTH/2)-30, 4);
+      display.println("GAME OVER");
+
+      for (pos = 0; pos <6; pos++) {
+        if (highscore[pos] < score) {
+          break;
+        }
+      }
+      sprintf(buf, "score: #%d %04d", pos+1, score);
+      display.setCursor(int(SCREEN_WIDTH/2)-38, 14);
+      display.println(buf);
+      display.setCursor(0, SCREEN_HEIGHT-8);
+      display.println("short: next");
+      display.display();
+
+      if (short_press) {
+        if (pos < 6) {
+          for (int i = 5; i > pos; i++)
+            highscore[i] = highscore[i-1];
+          highscore[pos] = score;
+        }
+        state = ST_HS;
+      }
+
     } else if (state == ST_GG) {
-      // FIXME
+      char buf[16];
+      unsigned int pos;
+
+      display.clearDisplay();
+      display.drawRect(1, 1, SCREEN_WIDTH-2, SCREEN_HEIGHT-2-10, 1);
+      display.setCursor(int(SCREEN_WIDTH/2)-38, 4);
+      display.println("LEVEL CLEAR");
+
+      for (pos = 0; pos <6; pos++) {
+        if (highscore[pos] < score) {
+          break;
+        }
+      }
+      sprintf(buf, "score: #%d %04d", pos+1, score);
+      display.setCursor(int(SCREEN_WIDTH/2)-38, 14);
+      display.println(buf);
+      display.setCursor(0, SCREEN_HEIGHT-8);
+      display.println("short: next");
+      display.display();
+
+      if (short_press) {
+        if (pos < 6) {
+          for (int i = 5; i > pos; i++)
+            highscore[i] = highscore[i-1];
+          highscore[pos] = score;
+        }
+        state = ST_HS;
+      }
       state = ST_HS;
       return;
     }
