@@ -15,7 +15,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 #define FPS 25
 #define JOYSTICK_PIN A3
-#define MAX_ENERGY SCREEN_HEIGHT-2
+#define MAX_ENERGY (SCREEN_HEIGHT-2)
 
 unsigned long stamp;
 
@@ -42,7 +42,7 @@ bool short_press = false;
 bool long_press = false;
 
 float x  = 0;
-float y  = SCREEN_HEIGHT/2;
+float y  = 0;
 float dx = 0;
 float dy = 0;
 float energy = MAX_ENERGY;
@@ -50,216 +50,120 @@ float energy = MAX_ENERGY;
 unsigned int progress = 0;
 unsigned int score    = 0;
 
+#define EBAR_WIDTH 5
+#define LEVEL_SWIDTH (SCREEN_WIDTH-EBAR_WIDTH)
 #define LEVEL_LEN 256
 static const unsigned char level[LEVEL_LEN] = {
-  0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
-  0x22, 0x03, 0x05, 0x26, 6, 5, 4, 5,
-  6, 8, 9, 10, 10, 11, 11, 11,
-  12, 13, 15, 0x2f, 0x0f, 0x3f, 0x0e, 0x2d,
-  0x0d, 0x0b, 0x2c, 12, 10, 9, 10, 12,
-  12, 11, 9, 5, 0x10, 0x10, 0x10, 0x10,
+  0x30, 0x21, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+  0x22, 0x03, 0x05, 0x26, 0x06, 0x05, 0x04, 0x05,
+  0x06, 0x08, 0x09, 0x0a, 0x0a, 0x0b, 0x0b, 0x0b,
+  0x0c, 0x0d, 0x0f, 0x2f, 0x0f, 0x2f, 0x0e, 0x2d,
+  0x0d, 0x0b, 0x2c, 0x0c, 0x0a, 0x09, 0x0a, 0x0c,
+  0x0c, 0x0b, 0x09, 0x05, 0x10, 0x10, 0x10, 0x10,
   0x10, 0x10, 0x10, 0x10, 0x27, 0x07, 0x27, 0x07,
   0x28, 0x08, 0x27, 0x07, 0x10, 0x10, 0x10, 0x10,
   // 64
-  0x10, 6, 6, 5, 4, 4, 3, 4,
-  4, 5, 6, 8, 9, 10, 10, 11,
-  11, 12, 13, 15, 15, 14, 12, 10,
-  6, 2, 0x10, 0x10, 0x10, 1, 2, 3,
-  4, 5, 6, 7, 8, 9, 10, 11,
-  12, 13, 14, 15, 14, 13, 12, 11,
-  10, 9, 8, 7, 6, 5, 4, 3,
-  2, 1, 0x10, 0x10, 0x10, 0x10, 0x10,
+  0x10, 0x06, 0x06, 0x05, 0x04, 0x04, 0x03, 0x04,
+  0x04, 0x05, 0x06, 0x08, 0x09, 0x0a, 0x0a, 0x0b,
+  0x0b, 0x0c, 0x0d, 0x0f, 0x0f, 0x0e, 0x0c, 0x0a,
+  0x06, 0x02, 0x10, 0x10, 0x10, 0x01, 0x02, 0x03,
+  0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+  0x0c, 0x0d, 0x0e, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b,
+  0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03,
+  0x02, 0x01, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
   // 128 FIXME
-  0x10, 6, 6, 5, 4, 4, 3, 4,
-  4, 5, 6, 8, 9, 10, 10, 11,
-  11, 12, 13, 15, 15, 14, 12, 10,
-  6, 2, 0x10, 0x10, 0x10, 1, 2, 3,
-  4, 5, 6, 7, 8, 9, 10, 11,
-  12, 13, 14, 15, 14, 13, 12, 11,
-  10, 9, 8, 7, 6, 5, 4, 3,
-  2, 1, 0x10, 0x10, 0x10, 0x10, 0x10,
+  0x10, 0x06, 0x06, 0x05, 0x04, 0x04, 0x03, 0x04,
+  0x04, 0x05, 0x06, 0x08, 0x09, 0x0a, 0x0a, 0x0b,
+  0x0b, 0x0c, 0x0d, 0x0f, 0x0f, 0x0e, 0x0c, 0x0a,
+  0x06, 0x02, 0x10, 0x10, 0x10, 0x01, 0x02, 0x03,
+  0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+  0x0c, 0x0d, 0x0e, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b,
+  0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03,
+  0x02, 0x01, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
   // 192 FIXME
-  0x10, 6, 6, 5, 4, 4, 3, 4,
-  4, 5, 6, 8, 9, 10, 10, 11,
-  11, 12, 13, 15, 15, 14, 12, 10,
-  6, 2, 0x10, 0x10, 0x10, 1, 2, 3,
-  4, 5, 6, 7, 8, 9, 10, 11,
-  12, 13, 14, 15, 14, 13, 12, 11,
-  10, 9, 8, 7, 6, 5, 4, 3,
-  2, 1, 0x10, 0x10, 0x10, 0x10, 0x10,
+  0x10, 0x06, 0x06, 0x05, 0x04, 0x04, 0x03, 0x04,
+  0x04, 0x05, 0x06, 0x08, 0x09, 0x0a, 0x0a, 0x0b,
+  0x0b, 0x0c, 0x0d, 0x0f, 0x0f, 0x0e, 0x0c, 0x0a,
+  0x06, 0x02, 0x10, 0x10, 0x10, 0x01, 0x02, 0x03,
+  0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+  0x0c, 0x0d, 0x0e, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b,
+  0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03,
+  0x02, 0x01, 0x10, 0x10, 0x10, 0x01, 0x21, 0x40,
   // 256
 };
+
+#define BIRD_START_X 5
+#define BIRD_START_Y (SCREEN_HEIGHT/2)
 
 unsigned int bird_ticks  = 5;
 unsigned int bird_frames = 8;
 unsigned int bird_frame  = 0;
 unsigned int bird_tick   = 0;
-static const unsigned char PROGMEM right_bird[8][8] = {
+static const unsigned char PROGMEM right_bird[8][6] = {
   {
-    0b00000000,
     0b00000000,
     0b01000000,
     0b01111110,
     0b00111100,
     0b00001100,
     0b00000100,
-    0b00000000,
   },
   {
-    0b00000000,
     0b00000000,
     0b01000000,
     0b01111110,
     0b00111100,
     0b00000100,
     0b00000000,
-    0b00000000,
   },
   {
-    0b00000000,
-    0b00000000,
     0b00011000,
     0b01111110,
     0b00001100,
     0b00000000,
     0b00000000,
-    0b00000000,
   },
   {
-    0b00000000,
     0b00110000,
     0b00011100,
     0b00111110,
     0b01011000,
     0b00000000,
     0b00000000,
-    0b00000000,
   },
   {
-    0b00000000,
     0b00110000,
     0b00011100,
     0b00111110,
     0b01011000,
     0b00000000,
     0b00000000,
-    0b00000000,
   },
   {
-    0b00000000,
     0b00000000,
     0b00011000,
     0b01111110,
     0b00001100,
     0b00000000,
     0b00000000,
-    0b00000000,
   },
   {
-    0b00000000,
     0b00000000,
     0b01000000,
     0b01111110,
     0b00111100,
     0b00000100,
     0b00000000,
-    0b00000000,
   },
   {
-    0b00000000,
     0b00000000,
     0b01000000,
     0b01111110,
     0b00111100,
     0b00001100,
     0b00000100,
-    0b00000000,
   },
 };
-/*
-static const unsigned char PROGMEM left_bird[8][8] = {
-  {
-    0b00000000,
-    0b00000000,
-    0b00000010,
-    0b01111110,
-    0b00111100,
-    0b00110000,
-    0b00100000,
-    0b00000000,
-  },
-  {
-    0b00000000,
-    0b00000000,
-    0b00000010,
-    0b01111110,
-    0b00111100,
-    0b00100000,
-    0b00000000,
-    0b00000000,
-  },
-  {
-    0b00000000,
-    0b00000000,
-    0b00011000,
-    0b01111110,
-    0b00110000,
-    0b00000000,
-    0b00000000,
-    0b00000000,
-  },
-  {
-    0b00000000,
-    0b00001100,
-    0b00111000,
-    0b01111100,
-    0b00011010,
-    0b00000000,
-    0b00000000,
-    0b00000000,
-  },
-  {
-    0b00000000,
-    0b00001100,
-    0b00111000,
-    0b01111100,
-    0b00011010,
-    0b00000000,
-    0b00000000,
-    0b00000000,
-  },
-  {
-    0b00000000,
-    0b00000000,
-    0b00011000,
-    0b01111110,
-    0b00110000,
-    0b00000000,
-    0b00000000,
-    0b00000000,
-  },
-  {
-    0b00000000,
-    0b00000000,
-    0b00000010,
-    0b01111110,
-    0b00111100,
-    0b00100000,
-    0b00000000,
-    0b00000000,
-  },
-  {
-    0b00000000,
-    0b00000000,
-    0b00000010,
-    0b01111110,
-    0b00111100,
-    0b00110000,
-    0b00100000,
-    0b00000000,
-  },
-};
-*/
 
 static const unsigned char PROGMEM cloud_left[9] = {
   0b00000011,
@@ -286,49 +190,93 @@ static const unsigned char PROGMEM lv_grass[6] = {
   0b01111010,
   0b01111100,
 };
+static const unsigned char PROGMEM lv_nest_right[32] = {
+  0b01111000,
+  0b11111110,
+  0b01111111,
+  0b10111111,
+  0b10111110,
+  0b01111000,
+  0b11010110,
+  0b00101111,
 
-/*
-typedef struct level_object_t {
-  unsigned char  x;
-  unsigned char PROGMEM *bitmap;
+  0b11010111,
+  0b10101110,
+  0b11100000,
+  0b11000000,
+  0b11000000,
+  0b10000000,
+  0b10000000,
+  0b10000000,
+
+  0b10000000,
+  0b10000000,
+  0b10000000,
+  0b10010001,
+  0b10011111,
+  0b10001111,
+  0b11111000,
+  0b11000000,
+
+  0b10000000,
+  0b10000000,
+  0b10000000,
+  0b10000000,
+  0b11000000,
+  0b11110000,
+  0b11011100,
+  0b11100111,
 };
 
-static const level_object_t object[2] = {
-  {
-    3,
-    lv_water,
-  },
-  {
-    4,
-    lv_grass,
-  },
+static const unsigned char PROGMEM lv_nest_left[16] = {
+  0b00000000,
+  0b00000000,
+  0b00000000,
+  0b00100010,
+  0b10111110,
+  0b01100010,
+  0b01111010,
+  0b01110110,
+
+  0b01010110,
+  0b01011110,
+  0b01110110,
+  0b01101110,
+  0b01101110,
+  0b01110110,
+  0b01110110,
+  0b11011011,
 };
-*/
+
 void draw_screen ()
 {
     display.clearDisplay();
 
     // bird
-    display.drawBitmap(int(x), int(SCREEN_HEIGHT-y), right_bird[bird_frame], 8, 8, 1);
+    display.drawBitmap(EBAR_WIDTH+int(x)-4, int(SCREEN_HEIGHT-y)-3, right_bird[bird_frame], 8, 6, 1);
 
     // ground
-    for (unsigned int i = 0; i <= int(SCREEN_WIDTH/8); i++) {
+    for (unsigned int i = 0; i <= int(LEVEL_SWIDTH/8)+1; i++) {
       unsigned char lv  = level[int(progress/8)+i];
       unsigned char obj = lv >> 4;
       lv = lv & 0x0F;
 
       if (lv)
-        display.fillRect(i*8-progress%8, SCREEN_HEIGHT-lv, 8, lv, 1);
-      if (obj > 0 && obj <= 2) {
+        display.fillRect(EBAR_WIDTH+i*8-progress%8, SCREEN_HEIGHT-lv, 8, lv, 1);
+      if (obj > 0 && obj <= 4) {
         const static unsigned char *bmp;
-        unsigned char bmx;
+        unsigned char bmy;
         switch (obj) {
-          case 1:  bmp = lv_water;  bmx = 3;
+          case 1:  bmp = lv_water;  bmy = 3;
             break;
-          case 2:  bmp = lv_grass;  bmx = 6;
+          case 2:  bmp = lv_grass;  bmy = 6;
+            break;
+          case 3:  bmp = lv_nest_right;  bmy = 32;
+            break;
+          case 4:  bmp = lv_nest_left;   bmy = 16;
             break;
         }
-        display.drawBitmap(i*8-progress%8, SCREEN_HEIGHT-lv-bmx, bmp, 8, bmx, 1);
+        display.drawBitmap(EBAR_WIDTH+i*8-progress%8, SCREEN_HEIGHT-lv-bmy, bmp, 8, bmy, 1);
       }
     }
 
@@ -424,9 +372,13 @@ void loop ()
         state = ST_HS;
       }
       if (long_press) {
-        state = ST_LSTART;
-        x = 0;
-        y = SCREEN_HEIGHT/2;
+        state    = ST_LSTART;
+        x        = BIRD_START_X;
+        y        = BIRD_START_Y;
+        dx       = 0;
+        dy       = 0;
+        score    = 0;
+        progress = 0;
       }
 
     } else if (state == ST_HS) {
@@ -463,16 +415,17 @@ void loop ()
 
       do_bird_tick();
 
-      if (x >= 16) {
+      if (x >= 20) {
         state = ST_LEVEL;
       }
 
       draw_screen();
 
     } else if (state == ST_LEVEL) {
-      dx = 0;
 
+      dx = 0;
       dy = -1;
+
       if (button_state > 0) {
         if (energy > 0) {
           dy = 1;
@@ -484,32 +437,33 @@ void loop ()
         }
       }
 
-      x += dx;
-      y += dy;
+      x        += dx;
+      y        += dy;
       progress += 1;
       score    += 1;
 
       do_bird_tick();
 
-      if (progress >= LEVEL_LEN*8 - SCREEN_WIDTH) {
-        state = ST_LEND;
+      if (progress >= LEVEL_LEN*8 - LEVEL_SWIDTH) {
+        progress = LEVEL_LEN*8-LEVEL_SWIDTH;
+        state    = ST_LEND;
       }
 
 
-      if (x > SCREEN_WIDTH - 8) {
-        x  = SCREEN_WIDTH-8;
+      if (x > LEVEL_SWIDTH - 4) {
+        x  = LEVEL_SWIDTH-4;
         dx = 0;
       }
-      if (x < 0) {
-        x = 0;
+      if (x < 4) {
+        x  = 4;
         dx = 0;
       }
-      if (y > SCREEN_HEIGHT) {
-        y = SCREEN_HEIGHT;
+      if (y > SCREEN_HEIGHT-3) {
+        y  = SCREEN_HEIGHT-3;
         dy = 0;
       }
-      if (y < 8) {
-        y = 8;
+      if (y < 3) {
+        y  = 3;
         dy = 0;
       }
 
@@ -517,12 +471,11 @@ void loop ()
     } else if (state == ST_LEND) {
       dx = 1;
       dy = 0;
-      progress = LEVEL_LEN*8-SCREEN_WIDTH;
 
       // level-off our bird
-      if (y - SCREEN_HEIGHT/2 > 0) {
+      if (y - BIRD_START_Y > 0) {
         dy = -1;
-      } else if (y - SCREEN_HEIGHT/2 < 0) {
+      } else if (y - BIRD_START_Y < 0) {
         dy = 1;
       }
 
@@ -531,7 +484,7 @@ void loop ()
 
       do_bird_tick();
 
-      if (x >= SCREEN_WIDTH-8) {
+      if (x >= LEVEL_SWIDTH-4) {
         state = ST_GG;
       }
 
