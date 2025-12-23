@@ -12,10 +12,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-
-#ifdef STORE_SCORES
 #include <EEPROM.h>
-#endif
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
@@ -42,7 +39,13 @@ typedef enum {
 } gamestate_t;
 gamestate_t state = ST_MENU;
 
-unsigned int highscore[6] = {1000, 900, 800, 700, 600, 500};
+#define DEFAULT_CONFIG {0, {1000, 900, 800, 700, 600, 500}}
+typedef struct gamedata_t {
+  bool godmode;
+  unsigned int highscore[6];
+};
+
+gamedata_t config = DEFAULT_CONFIG;
 
 unsigned int button_state = 0;
 unsigned long button_stamp = 0;
@@ -54,7 +57,6 @@ float y  = 0;
 float dx = 0;
 float dy = 0;
 float energy = MAX_ENERGY;
-bool godmode = true;
 
 unsigned int progress = 0;
 unsigned int score    = 0;
@@ -403,31 +405,59 @@ void do_bird_tick ()
   }
 }
 
-void load_scores()
+bool load_scores(gamedata_t *target)
 {
-#ifdef STORE_SCORES
-  unsigned char stored = EEPROM.read(0);
-  if (stored == 1) {
-    Serial.println("Loading highscore from EEPROM");
-    for (int i = 0; i < sizeof(highscore); i++) {
-      ((byte *)highscore)[i] = EEPROM.read(1+i);
-    }
+  unsigned char version = EEPROM.read(0);
+
+  if (version == 2) {
+    Serial.println("Loading v2 data from EEPROM");
+    for (int i = 0; i < sizeof(gamedata_t); i++)
+      ((byte *)target)[i] = EEPROM.read(1+i);
+
+  } else if (version == 1) {
+    Serial.println("Loading v1 data from EEPROM");
+    for (int i = 0; i < sizeof(target->highscore); i++)
+      ((byte *)(target->highscore))[i] = EEPROM.read(1+i);
+  
   } else {
-    Serial.println("Highscore was not yet stored in EEPROM");
+    Serial.println("Data were not yet stored in EEPROM");
+    return false;
   }
-#endif
+
+  return true;
+}
+
+void add_score(unsigned int new_hs)
+{
+  for (int i = 5; i >= 0; i--)
+    if (new_hs < config.highscore[i])
+      break;
+    else {
+      if (i < 5)
+        config.highscore[i+1] = config.highscore[i];
+      config.highscore[i] = new_hs;
+    }
 }
 
 void write_scores()
 {
-#ifdef STORE_SCORES
-  Serial.println("Writing scores to EEPROM...");
-  for (int i = 0; i < sizeof(highscore); i++) {
-    EEPROM.write(1+i, ((byte *)highscore)[i]);
-  }
-  EEPROM.write(0, 1);
-  Serial.println("done");
-#endif
+  Serial.println("Writing data v2 to EEPROM");
+  for (int i = 0; i < sizeof(gamedata_t); i++)
+    EEPROM.write(1+i, ((byte *)&config)[i]);
+  EEPROM.write(0, 2); // version
+}
+
+bool scores_are_in_sync()
+{
+  gamedata_t stored = DEFAULT_CONFIG;
+
+  load_scores(&stored);
+
+  for (int i = 0; i < 6; i++)
+    if (config.highscore[i] != stored.highscore[i])
+      return false;
+
+  return true;
 }
 
 void setup()
@@ -448,7 +478,7 @@ void setup()
   display.setTextSize(1);
   display.setTextColor(1);
 
-  load_scores();
+  load_scores(&config);
 
   state = ST_MENU;
 }
@@ -487,7 +517,7 @@ void loop ()
       display.println("START");
       display.setTextSize(1);
       display.setCursor(0, SCREEN_HEIGHT-8);
-      display.println("short: next  long: ok");
+      display.println("long: play  short: ->");
       display.display();
 
       if (short_press) {
@@ -505,20 +535,28 @@ void loop ()
 
     } else if (state == ST_HS) {
 
+      bool need_save = !scores_are_in_sync();
+
       display.clearDisplay();
       for (int s = 0; s < 6; s++) {
         char buf[16];
         display.setCursor(0+int(s/3)*(SCREEN_WIDTH/2), 0+8*(s%3));
-        sprintf(buf, "%d: %04d", s+1, highscore[s]);
+        sprintf(buf, "%d: %04d", s+1, config.highscore[s]);
         display.println(buf);
 
       }
       display.setCursor(0, SCREEN_HEIGHT-8);
-      display.println("short: next");
+      if (need_save)
+        display.println("long: save  short: ->");
+      else
+        display.println("[v] saved   short: ->");
       display.display();
 
       if (short_press) {
         state = ST_GM;
+      }
+      if (need_save && long_press) {
+        write_scores();
       }
 
     } else if (state == ST_GM) {
@@ -527,21 +565,21 @@ void loop ()
       display.drawRect(1, 1, SCREEN_WIDTH-2, SCREEN_HEIGHT-2-10, 1);
       display.setCursor(4, int(SCREEN_HEIGHT/2)-12);
       display.setTextSize(2);
-      if (godmode) {
+      if (config.godmode) {
         display.println("GODMODE: +");
       } else {
         display.println("GODMODE: -");
       }
       display.setTextSize(1);
       display.setCursor(0, SCREEN_HEIGHT-8);
-      display.println("short: next long: chg");
+      display.println("long: chng  short: ->");
       display.display();
 
       if (short_press) {
         state = ST_MENU;
       }
       if (long_press) {
-        godmode = !godmode;
+        config.godmode = !config.godmode;
       }
 
     } else if (state == ST_LSTART) {
@@ -572,7 +610,7 @@ void loop ()
       lv = lv & 0x0F;
 
       if (y - 3 < lv) {
-        if (!godmode) {
+        if (!config.godmode) {
           state = ST_GO;
           return;
         } else {
@@ -598,7 +636,7 @@ void loop ()
         // balloon
         case 6:
                  if (y+3 > SCREEN_HEIGHT-12)
-                   if (!godmode) {
+                   if (!config.godmode) {
                      state = ST_GO;
                      return;
                    } else {
@@ -635,7 +673,7 @@ void loop ()
         dy = 0;
       }
       if (y < 3) {
-        if (!godmode) {
+        if (!config.godmode) {
           state = ST_GO;
           return;
         } else {
@@ -676,26 +714,21 @@ void loop ()
       display.setCursor(int(SCREEN_WIDTH/2)-30, 4);
       display.println("GAME OVER");
 
-      for (pos = 0; pos <6; pos++) {
-        if (highscore[pos] < score) {
+      for (pos = 0; pos <6; pos++)
+        if (config.highscore[pos] < score)
           break;
-        }
-      }
+
       sprintf(buf, "score: #%d %04d", pos+1, score);
       display.setCursor(int(SCREEN_WIDTH/2)-38, 14);
       display.println(buf);
       display.setCursor(0, SCREEN_HEIGHT-8);
-      display.println("short: next");
+      display.println("            short: ->");
       display.display();
 
       if (short_press) {
-        if (!godmode)
-          if (pos < 6) {
-            for (int i = 5; i > pos; i--)
-              highscore[i] = highscore[i-1];
-            highscore[pos] = score;
-            write_scores();
-          }
+        if (!config.godmode)
+          add_score(score);
+
         state = ST_HS;
       }
 
@@ -709,7 +742,7 @@ void loop ()
       display.println("LEVEL CLEAR");
 
       for (pos = 0; pos <6; pos++) {
-        if (highscore[pos] < score) {
+        if (config.highscore[pos] < score) {
           break;
         }
       }
@@ -717,17 +750,13 @@ void loop ()
       display.setCursor(int(SCREEN_WIDTH/2)-38, 14);
       display.println(buf);
       display.setCursor(0, SCREEN_HEIGHT-8);
-      display.println("short: next");
+      display.println("            short: ->");
       display.display();
 
       if (short_press) {
-        if (!godmode)
-          if (pos < 6) {
-            for (int i = 5; i > pos; i--)
-              highscore[i] = highscore[i-1];
-            highscore[pos] = score;
-            write_scores();
-          }
+        if (!config.godmode)
+          add_score(score);
+
         state = ST_HS;
       }
 
