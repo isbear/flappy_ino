@@ -7,8 +7,6 @@
 #define OLED_RESET -1
 #define SCREEN_ADDRESS 0x3C
 
-#undef STORE_SCORES
-
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -17,9 +15,11 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 #define JOYSTICK_PIN A3
+#define DISPLAY_POWER_PIN PD2
 
 #define FPS 25
 #define MAX_ENERGY (SCREEN_HEIGHT-2)
+#define SLEEP_TIMEOUT 30
 
 unsigned long stamp;
 
@@ -27,17 +27,20 @@ unsigned long stamp;
 // ST_MENU -> ST_LSTART -> ST_LEVEL
 // ST_LEVEL -> ST_GO -> ST_HS
 // ST_LEVEL -> ST_LEND -> ST_GG -> ST_HS
+// (ST_MENU | ST_HS | ST_GM | ST_GO | ST_GG) <-> ST_SLEEP
 typedef enum {
   ST_MENU,
   ST_HS,
   ST_GM,
+  ST_SLEEP,
   ST_LSTART,
   ST_LEVEL,
   ST_LEND,
   ST_GO,
   ST_GG,
 } gamestate_t;
-gamestate_t state = ST_MENU;
+gamestate_t state          = ST_MENU;
+gamestate_t presleep_state = ST_MENU;
 
 #define DEFAULT_CONFIG {0, {1000, 900, 800, 700, 600, 500}}
 typedef struct gamedata_t {
@@ -49,8 +52,9 @@ gamedata_t config = DEFAULT_CONFIG;
 
 unsigned int button_state = 0;
 unsigned long button_stamp = 0;
-bool short_press = false;
-bool long_press = false;
+bool short_press     = false;
+bool long_press      = false;
+bool input_inactive  = false;
 
 float x  = 0;
 float y  = 0;
@@ -460,15 +464,12 @@ bool scores_are_in_sync()
   return true;
 }
 
-void setup()
+void display_on()
 {
-  // serial console
-  Serial.begin(9600);
+  Serial.println("Initializing display");
+  pinMode(DISPLAY_POWER_PIN, OUTPUT);
+  digitalWrite(DISPLAY_POWER_PIN, HIGH);
 
-  // input button
-  pinMode(JOYSTICK_PIN, INPUT);
-
-  // display
   delay(500);
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println("Display allocation failed");
@@ -477,6 +478,21 @@ void setup()
 
   display.setTextSize(1);
   display.setTextColor(1);
+}
+
+void display_off()
+{
+  Serial.println("Inactivity, turning display off");
+  digitalWrite(DISPLAY_POWER_PIN, LOW);
+}
+
+void setup()
+{
+  Serial.begin(9600);
+
+  pinMode(JOYSTICK_PIN, INPUT);
+
+  display_on();
 
   load_scores(&config);
 
@@ -490,6 +506,7 @@ void loop ()
   int cmd = digitalRead(JOYSTICK_PIN);
   if (cmd != button_state) {
     button_state = cmd;
+    input_inactive = false;
     if (!button_state) {
       Serial.print("Buttonpress for ");
       Serial.println(millis() - button_stamp);
@@ -502,8 +519,9 @@ void loop ()
       }
     }
     button_stamp = millis();
+  } else if (!button_state && millis() - button_stamp > SLEEP_TIMEOUT*1000) {
+    input_inactive = true;
   }
-
 
   // gametick
   if (millis() - stamp > 1000 / FPS) {
@@ -532,6 +550,10 @@ void loop ()
         score    = 0;
         progress = 0;
       }
+      if (input_inactive) {
+        presleep_state = state;
+        state          = ST_SLEEP;
+      }
 
     } else if (state == ST_HS) {
 
@@ -558,6 +580,10 @@ void loop ()
       if (need_save && long_press) {
         write_scores();
       }
+      if (input_inactive) {
+        presleep_state = state;
+        state          = ST_SLEEP;
+      }
 
     } else if (state == ST_GM) {
 
@@ -580,6 +606,10 @@ void loop ()
       }
       if (long_press) {
         config.godmode = !config.godmode;
+      }
+      if (input_inactive) {
+        presleep_state = state;
+        state          = ST_SLEEP;
       }
 
     } else if (state == ST_LSTART) {
@@ -731,6 +761,10 @@ void loop ()
 
         state = ST_HS;
       }
+      if (input_inactive) {
+        presleep_state = state;
+        state          = ST_SLEEP;
+      }
 
     } else if (state == ST_GG) {
       char buf[16];
@@ -759,7 +793,19 @@ void loop ()
 
         state = ST_HS;
       }
+      if (input_inactive) {
+        presleep_state = state;
+        state          = ST_SLEEP;
+      }
 
+    } else if (state == ST_SLEEP) {
+
+      if (short_press || long_press) {
+        display_on();
+
+        state = presleep_state;
+      } else
+        display_off();
     } // state switch
         
     short_press = false;
