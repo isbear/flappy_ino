@@ -1,3 +1,5 @@
+[![CC 1.0](http://mirrors.creativecommons.org/presskit/buttons/88x31/png/cc-zero.png)](https://creativecommons.org/public-domain/cc0/)
+
 # Flappy bird on arduino
 
 This is a simple game, that I wrote in a week to refresh my C skills and to get
